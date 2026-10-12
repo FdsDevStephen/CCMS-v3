@@ -1,0 +1,201 @@
+"""
+Flatten results into rows and write them to Excel, one sheet per
+document type.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
+
+from go_extractor.models import DocumentResult
+
+# (column, width) per document type.
+ADVOCATE_COLUMNS = [
+    ("Document", 28),
+    ("File No.", 18),
+    ("Govt. Order No.", 18),
+    ("Govt. Order Date", 14),
+    ("Case No.", 22),
+    ("Litigant (Petitioner)", 30),
+    ("Respondent", 30),
+    ("Respondents Represented", 50),
+    ("Government Advocate", 40),
+    ("Litigation Conducting Officer", 50),
+    ("Swearing Officer", 22),
+    ("LCO Phone", 16),
+    ("LCO Email", 30),
+    ("Issuing Authority", 24),
+    ("Issuing Authority Designation", 50),
+    ("Status", 14),
+    ("Processed At", 20),
+]
+
+SUSPENSION_COLUMNS = [
+    ("Document", 34),
+    ("Order Type", 22),
+    ("Order No.", 30),
+    ("Order Date", 12),
+    ("Employee Name", 26),
+    ("Designation", 30),
+    ("Office", 40),
+    ("Reason", 50),
+    ("Rule Invoked", 30),
+    ("Case Reference", 30),
+    ("Effective From", 18),
+    ("Issuing Authority", 24),
+    ("Issuing Authority Designation", 40),
+    ("Status", 14),
+    ("Processed At", 20),
+    # As written in the order, for checking against the scan. Kept last so
+    # sheets created before these columns existed can be extended.
+    ("Order No. (Kannada)", 30),
+    ("Employee Name (Kannada)", 26),
+    ("Designation (Kannada)", 30),
+    ("Office (Kannada)", 40),
+    ("Rule Invoked (Kannada)", 30),
+    ("Case Reference (Kannada)", 30),
+    ("Issuing Authority (Kannada)", 24),
+    ("Issuing Authority Designation (Kannada)", 40),
+]
+
+SHEETS = {
+    "advocate": ("GO Extractions", ADVOCATE_COLUMNS),
+    "suspension": ("Suspension Orders", SUSPENSION_COLUMNS),
+}
+
+
+def to_row(result: DocumentResult) -> dict[str, str]:
+    if result.doc_type == "suspension":
+        row = _suspension_row(result)
+    else:
+        row = _advocate_row(result)
+
+    row["Status"] = f"Failed: {result.error}" if result.error else "Success"
+    row["Processed At"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return row
+
+
+def _advocate_row(result: DocumentResult) -> dict[str, str]:
+    f = result.fields
+    lco = f.litigation_officer
+
+    if lco.is_swearing_officer:
+        swearing = "Same as Litigation Conducting Officer"
+    else:
+        swearing = lco.swearing_officer or ""
+
+    return {
+        "Document": result.filename,
+        "File No.": f.file_no or "",
+        "Govt. Order No.": f.go_number or "",
+        "Govt. Order Date": f.go_date or "",
+        "Case No.": f.case_number or "",
+        "Litigant (Petitioner)": f.petitioner or "",
+        "Respondent": f.respondent or "",
+        "Respondents Represented": "\n".join(
+            f"{i}) {r}" for i, r in enumerate(f.respondents_represented, 1)
+        ),
+        "Government Advocate": f.government_advocate or "",
+        "Litigation Conducting Officer": lco.officer or "",
+        "Swearing Officer": swearing,
+        "LCO Phone": lco.phone or "",
+        "LCO Email": lco.email or "",
+        "Issuing Authority": f.issuing_authority.name or "",
+        "Issuing Authority Designation": f.issuing_authority.designation or "",
+    }
+
+
+def _suspension_row(result: DocumentResult) -> dict[str, str]:
+    f = result.fields
+
+    return {
+        "Document": result.filename,
+        "Order Type": f.order_type or "",
+        "Order No.": f.order_number or "",
+        "Order Date": f.order_date or "",
+        "Employee Name": f.employee_name or "",
+        "Designation": f.employee_designation or "",
+        "Office": f.employee_office or "",
+        "Reason": f.reason or "",
+        "Rule Invoked": f.rule_invoked or "",
+        "Case Reference": f.case_reference or "",
+        "Effective From": f.effective_from or "",
+        "Issuing Authority": f.issuing_authority.name or "",
+        "Issuing Authority Designation": f.issuing_authority.designation or "",
+        **{
+            # getattr: results made before "original" existed (a Streamlit
+            # session kept across a code reload) have no such field.
+            f"{column} (Kannada)": (getattr(f, "original", None) or {}).get(
+                key, ""
+            )
+            for column, key in _ORIGINAL_COLUMNS
+        },
+    }
+
+
+_ORIGINAL_COLUMNS = [
+    ("Order No.", "order_number"),
+    ("Employee Name", "employee_name"),
+    ("Designation", "employee_designation"),
+    ("Office", "employee_office"),
+    ("Rule Invoked", "rule_invoked"),
+    ("Case Reference", "case_reference"),
+    ("Issuing Authority", "issuing_authority"),
+    ("Issuing Authority Designation", "issuing_authority_designation"),
+]
+
+
+def append_to_excel(results: list[DocumentResult], path: Path) -> None:
+    """Append one row per document to its type's sheet (created if needed)."""
+    if path.exists():
+        workbook = load_workbook(path)
+    else:
+        workbook = Workbook()
+        workbook.remove(workbook.active)
+
+    for result in results:
+        title, columns = SHEETS[result.doc_type]
+        sheet = _sheet(workbook, title, columns)
+        row = to_row(result)
+        sheet.append([row[name] for name, _ in columns])
+
+        for cell in sheet[sheet.max_row]:
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    if not workbook.sheetnames:
+        _sheet(workbook, *SHEETS["advocate"])
+
+    workbook.save(path)
+
+
+def _sheet(workbook: Workbook, title: str, columns: list[tuple[str, int]]):
+    if title in workbook.sheetnames:
+        sheet = workbook[title]
+    else:
+        sheet = workbook.create_sheet(title)
+
+    # New sheet, or one written before columns were added at the end.
+    for index, (name, width) in enumerate(columns, start=1):
+        cell = sheet.cell(row=1, column=index)
+
+        if cell.value is None:
+            cell.value = name
+            cell.font = Font(bold=True)
+            sheet.column_dimensions[get_column_letter(index)].width = width
+
+    return sheet
+
+
+def to_excel_bytes(results: list[DocumentResult]) -> bytes:
+    """A fresh workbook with just these results (for downloads)."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "go_extractions.xlsx"
+        append_to_excel(results, path)
+        return path.read_bytes()

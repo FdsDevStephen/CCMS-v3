@@ -12,6 +12,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 
+from go_extractor.data_elements import ORDER_TYPES, elements_for
 from go_extractor.models import DocumentResult
 
 # (column, width) per document type.
@@ -63,14 +64,36 @@ SUSPENSION_COLUMNS = [
     ("Issuing Authority Designation (Kannada)", 40),
 ]
 
+
+def _element_columns(order_type: str) -> list[tuple[str, int]]:
+    """Document, the data elements, Status, then the as-written values."""
+    elements = elements_for(order_type)
+
+    return [
+        ("Document", 34),
+        *((e.label, 14 if e.kind in ("date", "yes_no") else 30)
+          for e in elements),
+        ("Status", 14),
+        ("Processed At", 20),
+        *((f"{e.label} (Kannada)", 30)
+          for e in elements if e.kind in ("text", "list")),
+    ]
+
+
 SHEETS = {
     "advocate": ("GO Extractions", ADVOCATE_COLUMNS),
     "suspension": ("Suspension Orders", SUSPENSION_COLUMNS),
+    **{
+        order_type: (f"{order_type}s", _element_columns(order_type))
+        for order_type in ORDER_TYPES.values()
+    },
 }
 
 
 def to_row(result: DocumentResult) -> dict[str, str]:
-    if result.doc_type == "suspension":
+    if result.doc_type in ORDER_TYPES.values():
+        row = _element_row(result)
+    elif result.doc_type == "suspension":
         row = _suspension_row(result)
     else:
         row = _advocate_row(result)
@@ -135,6 +158,18 @@ def _suspension_row(result: DocumentResult) -> dict[str, str]:
             )
             for column, key in _ORIGINAL_COLUMNS
         },
+    }
+
+
+def _element_row(result: DocumentResult) -> dict[str, str]:
+    f = result.fields
+    elements = elements_for(result.doc_type)
+
+    return {
+        "Document": result.filename,
+        **{e.label: f.values.get(e.key) or "" for e in elements},
+        **{f"{e.label} (Kannada)": f.original.get(e.key, "")
+           for e in elements if e.kind in ("text", "list")},
     }
 
 

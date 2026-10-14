@@ -117,14 +117,42 @@ class SuspensionOrder:
 
 
 @dataclass
+class DisciplinaryOrder:
+    """HRMS2 data elements of an order (go_extractor/data_elements.py)."""
+
+    # Data-element order type, e.g. "Suspension Invoke Order".
+    order_type: str
+    # Element key -> value in English; None when the order does not state it.
+    values: dict[str, str | None] = field(default_factory=dict)
+    # Same elements as written in the order (usually Kannada).
+    original: dict[str, str] = field(default_factory=dict)
+    sources: dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "order_type": self.order_type,
+            **self.values,
+            "original": self.original,
+            "sources": self.sources,
+        }
+
+    def missing_fields(self) -> list[str]:
+        """Elements every order should have that are still empty."""
+        checks = ("employee_name", "designation", "order_no", "order_date")
+        return [name for name in checks
+                if name in self.values and not self.values[name]]
+
+
+@dataclass
 class DocumentResult:
     """Everything produced for one uploaded file."""
 
     filename: str
-    fields: GOExtraction | SuspensionOrder
+    fields: GOExtraction | SuspensionOrder | DisciplinaryOrder
     text: str
     ocr_method: str
     timings: dict[str, float] = field(default_factory=dict)
     error: str | None = None
-    # "advocate" (GO authorising a Government Advocate) or "suspension".
+    # "advocate" (GO authorising a Government Advocate), "suspension", or
+    # a data-element order type such as "Suspension Invoke Order".
     doc_type: str = "advocate"

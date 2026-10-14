@@ -1,0 +1,24 @@
+# Test requests: start the API (Ctrl+F5), then click "Send request" above a request.
+# Or use the test page https://localhost:7421/ or Swagger https://localhost:7421/swagger.
+# OCR takes ~30-45 s per page, so the uploads can take a few minutes.
+
+@host = https://localhost:7421
+
+### Is it working? (API, OCR server and LLM server)
+GET {{host}}/health
+
+### OCR a document and run the task -> the fields
+# Change the path after "<" to a real document. Add more "files" parts to read several files as one document.
+POST {{host}}/api/documents/process
+Content-Type: multipart/form-data; boundary=DocumentBoundary
+
+--DocumentBoundary
+Content-Disposition: form-data; name="files"; filename="document.pdf"
+Content-Type: application/pdf
+
+< C:\path\to\document.pdf
+--DocumentBoundary
+Content-Disposition: form-data; name="includeText"
+
+true
+--DocumentBoundary--

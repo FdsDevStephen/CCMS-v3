@@ -3,7 +3,8 @@ GO extraction pipeline: file -> text (OCR) -> document type -> fields ->
 DocumentResult. Each step is logged to the terminal with timing.
 
     advocate GOs     rules, then the LLM fills gaps
-    suspension orders  LLM reads the whole order (suspension.py)
+    suspension orders  LLM reads the whole order (suspension.py);
+                       invoke orders: HRMS2 data elements (order_elements.py)
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import logging
 import time
 from pathlib import Path
 
-from go_extractor import rules, suspension
+from go_extractor import data_elements, order_elements, rules, suspension
 from go_extractor.llm.clients import get_llm_client
 from go_extractor.llm.fallback import fill_missing
 from go_extractor.models import DocumentResult, GOExtraction
@@ -99,9 +100,31 @@ class GOPipeline:
                 "Suspension orders need the LLM: set LLM_PROVIDER in .env."
             )
 
+        # The order type decides the fields: from the subject line, else
+        # from the LLM's reading of the whole order.
         step = time.perf_counter()
-        log(f"Suspension order, LLM ({self.llm.name}) ...")
-        fields = suspension.extract(ocr.text, self.llm, ocr.pages)
+        fields = None
+        order_type = suspension._subject_type(ocr.text)
+
+        if order_type is None:
+            log(f"Suspension order, LLM ({self.llm.name}) ...")
+            fields = suspension.extract(ocr.text, self.llm, ocr.pages)
+            order_type = fields.order_type
+
+        doc_type = data_elements.ORDER_TYPES.get(order_type)
+
+        if doc_type:
+            log(f"{doc_type}, data elements, LLM ({self.llm.name}) ...")
+            fields = order_elements.extract(
+                ocr.text, self.llm, doc_type, ocr.pages
+            )
+        else:
+            doc_type = "suspension"
+
+            if fields is None:
+                log(f"Suspension order, LLM ({self.llm.name}) ...")
+                fields = suspension.extract(ocr.text, self.llm, ocr.pages)
+
         timings["LLM"] = time.perf_counter() - step
         log(f"LLM done in {timings['LLM']:.1f}s, missing: "
             f"{', '.join(fields.missing_fields()) or 'none'}")
@@ -115,5 +138,5 @@ class GOPipeline:
             text=ocr.text,
             ocr_method=ocr.method,
             timings=timings,
-            doc_type="suspension",
+            doc_type=doc_type,
         )

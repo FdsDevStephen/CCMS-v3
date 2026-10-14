@@ -20,6 +20,7 @@ st.set_page_config(
 )
 
 from config import settings
+from go_extractor.data_elements import ORDER_TYPES, elements_for
 from go_extractor.exporter import append_to_excel, to_excel_bytes, to_row
 from go_extractor.models import DocumentResult
 from go_extractor.ocr import IMAGE_SUFFIXES, check_languages
@@ -84,8 +85,13 @@ def show_result(result: DocumentResult) -> None:
     row = to_row(result)
 
     with st.container(border=True):
-        rows = (SUSPENSION_FIELD_ROWS if result.doc_type == "suspension"
-                else FIELD_ROWS)
+        if result.doc_type in ORDER_TYPES.values():
+            rows = [(f"{e.number}. {e.label}", e.label)
+                    for e in elements_for(result.doc_type)]
+        elif result.doc_type == "suspension":
+            rows = SUSPENSION_FIELD_ROWS
+        else:
+            rows = FIELD_ROWS
 
         for label, column in rows:
             left, right = st.columns([1, 3])
@@ -99,11 +105,16 @@ def show_result(result: DocumentResult) -> None:
     if missing:
         st.warning("Not found: " + ", ".join(m.replace("_", " ") for m in missing))
 
-    if result.doc_type == "suspension":
+    if result.doc_type in ORDER_TYPES.values():
+        st.caption(f"{result.doc_type} · Values are English versions by the "
+                   "LLM of text checked against the document; fields the "
+                   "order does not state are left blank.")
+    elif result.doc_type == "suspension":
         st.caption("Suspension order · Values are English versions by the "
                    "LLM of text checked against the document; Reason is an "
                    "English summary.")
 
+    if result.doc_type != "advocate":
         originals = {column: value for column, value in row.items()
                      if column.endswith("(Kannada)") and value}
 
@@ -112,7 +123,7 @@ def show_result(result: DocumentResult) -> None:
                 for column, value in originals.items():
                     left, right = st.columns([1, 3])
                     left.markdown(f"**{column.removesuffix(' (Kannada)')}**")
-                    right.markdown(value)
+                    right.markdown(value.replace("\n", "  \n"))
 
     timing = " · ".join(f"{k} {v:.1f}s" for k, v in result.timings.items())
     st.caption(f"Text: {result.ocr_method} · {timing}")

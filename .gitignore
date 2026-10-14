@@ -3,6 +3,13 @@ __pycache__/
 .venv/
 venv/
 .env
+samples/
 output/
 .streamlit_uploads/
 .pytest_cache/
+
+# .NET build output and Visual Studio's own files (CcmsApi)
+bin/
+obj/
+.vs/
+*.user

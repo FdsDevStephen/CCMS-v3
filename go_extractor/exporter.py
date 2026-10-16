@@ -1,19 +1,27 @@
 """
 Flatten results into rows and write them to Excel, one sheet per
-document type.
+document type. Data-element orders give one row per employee.
 """
 
 from __future__ import annotations
 
+import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+
+try:
+    import msvcrt
+except ImportError:  # not Windows
+    import fcntl
+    msvcrt = None
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 
 from go_extractor.data_elements import ORDER_TYPES, elements_for
-from go_extractor.models import DocumentResult
+from go_extractor.models import DocumentResult, EmployeeElements
 
 # (column, width) per document type.
 ADVOCATE_COLUMNS = [
@@ -66,11 +74,17 @@ SUSPENSION_COLUMNS = [
 
 
 def _element_columns(order_type: str) -> list[tuple[str, int]]:
-    """Document, the data elements, Status, then the as-written values."""
+    """
+    Document, employee "1 of 3", a warning when the subject line reads as
+    another order type than the file name, the data elements, Status, then
+    the as-written values.
+    """
     elements = elements_for(order_type)
 
     return [
         ("Document", 34),
+        ("Employee", 10),
+        ("Type Check", 30),
         *((e.label, 14 if e.kind in ("date", "yes_no") else 30)
           for e in elements),
         ("Status", 14),
@@ -90,17 +104,23 @@ SHEETS = {
 }
 
 
-def to_row(result: DocumentResult) -> dict[str, str]:
+def to_rows(result: DocumentResult) -> list[dict[str, str]]:
+    """One row per document, or per employee for data-element orders."""
     if result.doc_type in ORDER_TYPES.values():
-        row = _element_row(result)
+        rows = _element_rows(result)
     elif result.doc_type == "suspension":
-        row = _suspension_row(result)
+        rows = [_suspension_row(result)]
     else:
-        row = _advocate_row(result)
+        rows = [_advocate_row(result)]
 
-    row["Status"] = f"Failed: {result.error}" if result.error else "Success"
-    row["Processed At"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    return row
+    status = f"Failed: {result.error}" if result.error else "Success"
+    processed = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    for row in rows:
+        row["Status"] = status
+        row["Processed At"] = processed
+
+    return rows
 
 
 def _advocate_row(result: DocumentResult) -> dict[str, str]:
@@ -161,16 +181,28 @@ def _suspension_row(result: DocumentResult) -> dict[str, str]:
     }
 
 
-def _element_row(result: DocumentResult) -> dict[str, str]:
+def _element_rows(result: DocumentResult) -> list[dict[str, str]]:
+    """The order's values repeated on each employee's row."""
     f = result.fields
     elements = elements_for(result.doc_type)
+    # An order where no employee was found still gets one row.
+    employees = f.employees or [EmployeeElements()]
+    rows = []
 
-    return {
-        "Document": result.filename,
-        **{e.label: f.values.get(e.key) or "" for e in elements},
-        **{f"{e.label} (Kannada)": f.original.get(e.key, "")
-           for e in elements if e.kind in ("text", "list")},
-    }
+    for number, employee in enumerate(employees, start=1):
+        values = {**f.values, **employee.values}
+        original = {**f.original, **employee.original}
+
+        rows.append({
+            "Document": result.filename,
+            "Employee": f"{number} of {len(employees)}",
+            "Type Check": getattr(f, "type_check", None) or "",
+            **{e.label: values.get(e.key) or "" for e in elements},
+            **{f"{e.label} (Kannada)": original.get(e.key, "")
+               for e in elements if e.kind in ("text", "list")},
+        })
+
+    return rows
 
 
 _ORIGINAL_COLUMNS = [
@@ -185,27 +217,61 @@ _ORIGINAL_COLUMNS = [
 ]
 
 
+@contextmanager
+def excel_lock(path: Path):
+    """One program at a time reads or saves the Excel file.
+
+    Several runs (terminals) can then save to the same file: each one
+    waits for the others' saves instead of overwriting their rows. The
+    lock is on <file>.lock next to it and is released if a run is killed.
+    """
+    lock = path.with_name(path.name + ".lock")
+
+    with open(lock, "a+b") as handle:
+        while True:
+            try:
+                handle.seek(0)
+                if msvcrt:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                time.sleep(0.2)
+
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            if msvcrt:
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
+
 def append_to_excel(results: list[DocumentResult], path: Path) -> None:
-    """Append one row per document to its type's sheet (created if needed)."""
-    if path.exists():
-        workbook = load_workbook(path)
-    else:
-        workbook = Workbook()
-        workbook.remove(workbook.active)
+    """Append each document's rows to its type's sheet (created if needed)."""
+    with excel_lock(path):
+        if path.exists():
+            workbook = load_workbook(path)
+        else:
+            workbook = Workbook()
+            workbook.remove(workbook.active)
 
-    for result in results:
-        title, columns = SHEETS[result.doc_type]
-        sheet = _sheet(workbook, title, columns)
-        row = to_row(result)
-        sheet.append([row[name] for name, _ in columns])
+        for result in results:
+            title, columns = SHEETS[result.doc_type]
+            sheet = _sheet(workbook, title, columns)
 
-        for cell in sheet[sheet.max_row]:
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            for row in to_rows(result):
+                sheet.append([row[name] for name, _ in columns])
 
-    if not workbook.sheetnames:
-        _sheet(workbook, *SHEETS["advocate"])
+                for cell in sheet[sheet.max_row]:
+                    cell.alignment = Alignment(wrap_text=True, vertical="top")
 
-    workbook.save(path)
+        if not workbook.sheetnames:
+            _sheet(workbook, *SHEETS["advocate"])
+
+        workbook.save(path)
 
 
 def _sheet(workbook: Workbook, title: str, columns: list[tuple[str, int]]):

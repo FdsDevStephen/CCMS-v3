@@ -1,8 +1,5 @@
 # OCR
 pymupdf>=1.24
-opencv-python>=4.9
-numpy>=1.26
-pytesseract>=0.3.10
 
 # Extraction
 rapidfuzz>=3.0

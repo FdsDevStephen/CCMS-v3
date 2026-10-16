@@ -117,30 +117,57 @@ class SuspensionOrder:
 
 
 @dataclass
+class EmployeeElements:
+    """The data elements of one employee named in an order."""
+
+    # Element key -> value in English; None when the order does not state it.
+    values: dict[str, str | None] = field(default_factory=dict)
+    # Same elements as written in the order (usually Kannada).
+    original: dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {**self.values, "original": self.original}
+
+
+@dataclass
 class DisciplinaryOrder:
     """HRMS2 data elements of an order (go_extractor/data_elements.py)."""
 
     # Data-element order type, e.g. "Suspension Invoke Order".
     order_type: str
-    # Element key -> value in English; None when the order does not state it.
+    # Elements of the whole order: key -> value in English, or None.
     values: dict[str, str | None] = field(default_factory=dict)
     # Same elements as written in the order (usually Kannada).
     original: dict[str, str] = field(default_factory=dict)
+    # One entry per employee the order is about, in the order named.
+    employees: list[EmployeeElements] = field(default_factory=list)
     sources: dict[str, str] = field(default_factory=dict)
+    # Set when the order's subject line reads as another type than the
+    # one from the file name (the file name's type is kept).
+    type_check: str | None = None
 
     def to_dict(self) -> dict:
         return {
             "order_type": self.order_type,
+            "type_check": self.type_check,
             **self.values,
+            "employees": [e.to_dict() for e in self.employees],
             "original": self.original,
             "sources": self.sources,
         }
 
     def missing_fields(self) -> list[str]:
         """Elements every order should have that are still empty."""
-        checks = ("employee_name", "designation", "order_no", "order_date")
-        return [name for name in checks
-                if name in self.values and not self.values[name]]
+        missing = [name for name in ("order_no", "order_date")
+                   if not self.values.get(name)]
+
+        for name in ("employee_name", "designation"):
+            if not self.employees or any(
+                not e.values.get(name) for e in self.employees
+            ):
+                missing.append(name)
+
+        return missing
 
 
 @dataclass
@@ -156,3 +183,4 @@ class DocumentResult:
     # "advocate" (GO authorising a Government Advocate), "suspension", or
     # a data-element order type such as "Suspension Invoke Order".
     doc_type: str = "advocate"
+    pages: int = 0

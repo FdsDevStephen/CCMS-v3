@@ -1,7 +1,7 @@
 """
 All settings for GovtCase, read from .env (see .env.example).
 
-    from config.settings import OCR_LANG, LLM_PROVIDER
+    from config.settings import OCR_API_URL, LLM_PROVIDER
 """
 
 from __future__ import annotations
@@ -24,29 +24,19 @@ def _bool(name: str, default: str) -> bool:
 # OCR
 # ==========================================================
 
-TESSERACT_CMD: str = os.getenv(
-    "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
-
-# api       = OCR server at OCR_API_URL (falls back to Tesseract if it fails)
-# tesseract = local Tesseract only
-OCR_ENGINE: str = os.getenv("OCR_ENGINE", "api")
+# Scanned PDFs and images are read by this OCR server; there is no local
+# OCR. It answers plain text with "===== Source page N =====" marks
+# (IndicOCR's JSON, .../indicocr/ocr_markdown, is read too).
 OCR_API_URL: str = os.getenv("OCR_API_URL", "http://101.53.140.252/ocr")
-OCR_API_TIMEOUT: int = int(os.getenv("OCR_API_TIMEOUT", "300"))
-
-# English + Kannada. Both traineddata files must be in Tesseract's tessdata.
-OCR_LANG: str = os.getenv("OCR_LANG", "eng+kan")
-OCR_DPI: int = int(os.getenv("OCR_DPI", "300"))
+# The server takes ~2-10 s per page; long or busy documents take longer.
+OCR_API_TIMEOUT: int = int(os.getenv("OCR_API_TIMEOUT", "900"))
 
 # GOs are 1-2 pages; this only guards against huge uploads.
 OCR_MAX_PAGES: int = int(os.getenv("OCR_MAX_PAGES", "10"))
 
-# Use the PDF's own text when a page has at least this many characters.
+# Use the PDF's own text when every page has at least this many
+# characters of it (a digital PDF); otherwise the file goes to OCR.
 OCR_MIN_TEXT_LAYER_CHARS: int = int(os.getenv("OCR_MIN_TEXT_LAYER_CHARS", "80"))
-
-OCR_MAX_WORKERS: int = int(
-    os.getenv("OCR_MAX_WORKERS", str(min(4, os.cpu_count() or 4)))
-)
 
 
 # ==========================================================
@@ -59,13 +49,15 @@ OCR_MAX_WORKERS: int = int(
 # ollama   = local Ollama model (OLLAMA_MODEL)
 LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "generate")
 
-REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "120"))
+# Suspension Invoke Orders return ~58 values, which takes a few minutes.
+REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "300"))
 MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "3"))
-# Suspension orders return each field in Kannada and English (~800 tokens).
-LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "2048"))
+# Suspension orders return each field in Kannada and English (~800 tokens
+# for the 11 suspension fields, more for the 33 invoke-order data elements).
+LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "4096"))
 
 GENERATE_URL: str = os.getenv(
-    "GENERATE_URL", "http://101.53.137.13:8004/qwen13/generate_greedy"
+    "GENERATE_URL", "http://101.53.137.13:8004/vllm/generate_greedy"
 )
 # Must stay 1.0: higher values stop the model copying names from the text.
 GENERATE_REPETITION_PENALTY: float = float(

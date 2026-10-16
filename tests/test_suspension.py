@@ -69,7 +69,8 @@ def test_extract_keeps_values_found_in_text():
     assert result.issuing_authority.designation == (
         "ಪೊಲೀಸ್‌ ಅಧೀಕ್ಷಕರು, ಗದಗ ಜಿಲ್ಲೆ, ಗದಗ"
     )
-    assert result.effective_from == "With immediate effect"
+    # The excerpt never says "immediately" (ತಕ್ಷಣ), so that is not taken.
+    assert result.effective_from is None
     assert result.issuing_authority.name == "ರೋಹನ್‌ ಜಗದೀಶ್‌"
     assert result.sources["reason"] == "llm-summary"
     assert result.missing_fields() == []

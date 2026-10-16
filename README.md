@@ -44,6 +44,40 @@ values it copies must appear in the OCR text and dates must match a date
 in the text, otherwise they are left empty. These need an LLM
 (`LLM_PROVIDER` other than `none`).
 
+### Invoke / Extend / Revoke orders — HRMS2 data elements
+
+Suspension, extension and revocation orders are extracted with the HRMS2
+data elements (`HRMS2_Disciplinary_Suspension_Data_Elements_Ver2.0.xlsx`):
+the 25 Common and Disciplinary elements (ALL) plus those marked for the
+order type, each written to its own sheet.
+
+| Order type | Own elements | Sheet |
+| --- | --- | --- |
+| Suspension Invoke Order | 26-33: suspension order no. / date, effective from, reason, lien post, subsistence allowance (Yes/No), charge given (Yes/No), charge sheet no. | Suspension Invoke Orders |
+| Suspension Extend Order | 26-29: extension required (Yes/No), extension from / to, subsistence allowance % | Suspension Extend Orders |
+| Suspension Revoke Order | 26-31: suspension effective to, reinstatement order no. / date, posting office / address, reinstatement reason | Suspension Revoke Orders |
+
+The elements are listed in `go_extractor/data_elements.py` and read by
+`go_extractor/order_elements.py`. A value is kept only when the order
+states it: copied values must be found in the OCR text, dates must match
+a date in the text, and Yes / No fields are blank unless the order says
+so. Anything else stays blank rather than being inferred.
+
+An order can be about several employees. The employee elements (name,
+designation, office, DDO code, KGIDs, cadre, posting, lien
+post, reinstatement posting office / address) are read once per employee
+named, and each employee gets their own Excel row ("Employee 1 of 3")
+with the order's values repeated on it. In JSON they are in an
+`"employees"` list.
+
+The order type comes from the **file name** when it names one
+(`Suspension_Invoke_Orders_…`, `…_Extend_…`, `…_Revoke_…`), whatever the
+order says. If the subject line (ವಿಷಯ) reads as another type, the
+"Type Check" column (and a warning in the app) says so; the file name's
+type is kept. Without a type in the file name, it comes from the subject
+line when it says so plainly, else from an extra LLM call.
+"Other (suspension related)" orders keep the fields above.
+
 ## How it works
 
 ```
@@ -51,9 +85,8 @@ PDF / image
    │
    ▼
 OCR  (go_extractor/ocr.py)
-   PDF text layer if present, else the OCR server (OCR_API_URL);
-   if it fails, Tesseract eng+kan at 300 DPI (pages scanned sideways /
-   upside down are rotated first)
+   PDF text layer if every page has one, else the OCR server
+   (OCR_API_URL); no local OCR
    │
    ▼
 Type  suspension order? → LLM reads the whole order (go_extractor/suspension.py)
@@ -96,13 +129,11 @@ GovtCase/
 
 ## Setup
 
-1. OCR: the OCR server at `OCR_API_URL` is used by default
-   (`OCR_ENGINE=api`). Tesseract is the fallback, and is used for
-   everything with `OCR_ENGINE=tesseract`.
-   Tesseract with English and Kannada (`eng.traineddata`, `kan.traineddata`
-   in its `tessdata` folder). Check with `tesseract --list-langs`.
+1. OCR: scanned PDFs and images are read by the OCR server at
+   `OCR_API_URL` (default `http://101.53.140.252/ocr`); nothing needs
+   installing for OCR.
 2. `pip install -r requirements.txt`
-3. `copy .env.example .env` and adjust if needed (Tesseract path, LLM).
+3. `copy .env.example .env` and adjust if needed (servers, LLM).
 
 ## Usage
 
@@ -128,7 +159,7 @@ python extract.py file.pdf --text             # also show the OCR text
 Keep `GENERATE_REPETITION_PENALTY=1.0` — the hosted vLLM server's default
 (1.15) stops the model copying names from the text. Set
 `GENERATE_NO_THINK=true` only for Qwen3 `/generate` servers. The default
-`GENERATE_URL` is `.../qwen13/generate_greedy` (Qwen3-14B, 32k context),
+`GENERATE_URL` is `.../vllm/generate_greedy` (Qwen3-14B, 32k context),
 which already runs with temperature 0, thinking off and repetition penalty 1.0.
 
 ## Notes

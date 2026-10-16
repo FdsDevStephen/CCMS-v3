@@ -1,8 +1,9 @@
-# Test requests: start the API (Ctrl+F5), then click "Send request" above a request.
-# Or use the test page https://localhost:7421/ or Swagger https://localhost:7421/swagger.
+# Test requests: start the API (Ctrl+F5 in Visual Studio, IIS Express), then click "Send request" above a request.
+# Or use the test page https://localhost:44321/ or Swagger https://localhost:44321/swagger.
+# On IIS, change @host to the site's address (e.g. http://server/CcmsApi).
 # OCR takes ~30-45 s per page, so the uploads can take a few minutes.
 
-@host = https://localhost:7421
+@host = https://localhost:44321
 
 ### Is it working? (API, OCR server and LLM server)
 GET {{host}}/health

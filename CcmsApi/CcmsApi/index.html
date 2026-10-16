@@ -27,7 +27,7 @@
 <body>
 <main>
   <h1>CCMS Documents</h1>
-  <div class="muted">Health: <span id="health">checking…</span> · <a href="/swagger">Swagger</a></div>
+  <div class="muted">Health: <span id="health">checking…</span> · <a href="swagger">Swagger</a></div>
 
   <div class="card">
     <h2>Upload documents</h2>
@@ -46,7 +46,7 @@
 <script>
   const $ = id => document.getElementById(id);
 
-  fetch("/health").then(r => r.json()).then(h => {
+  fetch("health").then(r => r.json()).then(h => {
     const parts = [`OCR server ${h.ocrServer.up ? "up" : "DOWN"}`, `LLM server ${h.llmServer.up ? "up" : "DOWN"}`];
     $("health").textContent = `${h.status} (${parts.join(", ")})`;
     $("health").className = h.status === "Healthy" ? "ok" : "bad";
@@ -82,7 +82,7 @@
     }
   }
 
-  $("process").onclick = () => send("/api/documents/process");
+  $("process").onclick = () => send("api/documents/process");
 </script>
 </body>
 </html>

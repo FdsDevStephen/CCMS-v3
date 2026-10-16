@@ -1,0 +1,253 @@
+{
+  "_help": [
+    "Answer key for tests/check_samples.py, written by reading the scans.",
+    "order / employees: element key -> expected English value.",
+    "  A key that is not listed must come out BLANK (the document does not state it).",
+    "  \"?\" = the document leaves it unclear (e.g. which of two offices is the posting): blank or a value are both accepted (shown for review).",
+    "  A list = several acceptable answers (all stated in the document).",
+    "Values are compared loosely (transliteration differs); dates exactly.",
+    "legacy: documents that go to the old Suspension Orders sheet; only the listed keys are checked."
+  ],
+  "documents": [
+    {
+      "file": "samples/suspension/extend/Suspension_Extend_Orders_798860.pdf",
+      "doc_type": "Suspension Extend Order",
+      "order": {
+        "document_type": "Suspension Order",
+        "disciplinary_authority_name": "K. Parashurama, IPS, Disciplinary Authority and Deputy Commissioner of Police, Whitefield Division, Bengaluru City",
+        "order_no": "07/DE/R-6/DCP/WV/2025",
+        "order_date": "06.12.2025",
+        "reference": "Police Inspector, HAL, Bengaluru City report T3PS/Station/PR/09/2025, dt. 06/12/2025",
+        "subject": "Placing Sri Mohana Rathod, ASI, HAL Police Station, Bengaluru City under suspension",
+        "copy_to": "Police Inspector, HAL Police Station, Bengaluru City; Assistant Commissioner of Police, Marathahalli Sub-Division, Bengaluru City; Staff-4 Section & Pay Section; Commissioner of Police, Bengaluru City; Joint Commissioner of Police, East, Bengaluru City; Joint Commissioner of Police, Administration, Bengaluru City",
+        "case_type": "?",
+        "nature_of_disciplinary_action": [
+          "Suspended from service with immediate effect until further orders",
+          "Placed under suspension"
+        ],
+        "competent_authority": "Disciplinary Authority and Deputy Commissioner of Police, Whitefield Division",
+        "applicable_rule": "Karnataka State Police (Discipline Proceedings) Rules 1965",
+        "rule_section": "Rule 5(1)",
+        "suspension_order_no": "07/DE/R-6/DCP/WV/2025",
+        "suspension_order_date": "06.12.2025",
+        "suspension_effective_from": "With immediate effect",
+        "reason_for_suspension": [
+          "Misbehaved with the complainant's daughter while on Hoysala-236 duty",
+          "Improperly behaved by taking the daughter of the complainant to the police vehicle"
+        ],
+        "subsistence_allowance_applicable": "Yes",
+        "department": "?"
+      },
+      "employees": [
+        {
+          "employee_name": "Mohana Rathod",
+          "designation": "ASI",
+          "office_name": "HAL Police Station, Bengaluru City",
+          "current_posting": "HAL Police Station, Bengaluru City"
+        }
+      ]
+    },
+    {
+      "file": "samples/suspension/extend/Suspension_Extend_Orders_806017.pdf",
+      "doc_type": "Suspension Extend Order",
+      "order": {
+        "document_type": "Suspension Order",
+        "disciplinary_authority_name": "Syedulu Adavath, IPS, Disciplinary Authority and Deputy Commissioner of Police, Whitefield Division, Bengaluru City",
+        "order_no": "01/DE/R-6/DCP/WV/2026",
+        "order_date": "05.02.2026",
+        "reference": "ACP Whitefield sub-division letter ACP/WFSD/DE/03/2026 dated 02/02/2026; Police Inspector Mahadevapura Police Station report PR/01/2026 dated 27/01/2026",
+        "subject": "Placing Sri Jaggesh Naik, CPC 16778, Mahadevapura Police Station, Bengaluru City under suspension",
+        "copy_to": "Police Inspector, Mahadevapura Police Station, Bengaluru City; Assistant Commissioner of Police, Whitefield Sub-Division, Bengaluru City; Staff-3 Section and Pay Section; Police Inspector, Women Police Station, Whitefield Division, Bengaluru City; Commissioner of Police, Bengaluru City; Joint Commissioner of Police, East, Bengaluru City; Joint Commissioner of Police, Administration, Bengaluru City",
+        "case_type": "?",
+        "nature_of_disciplinary_action": [
+          "Suspended from service with immediate effect until further orders, pending departmental disciplinary proceedings",
+          "Placed under suspension pending enquiry"
+        ],
+        "competent_authority": "Disciplinary Authority and Deputy Commissioner of Police, Whitefield Division",
+        "applicable_rule": "Karnataka State Police (Discipline Proceedings) Rules 1965",
+        "rule_section": "Rule 5(1)",
+        "suspension_order_no": "01/DE/R-6/DCP/WV/2026",
+        "suspension_order_date": "05.02.2026",
+        "suspension_effective_from": "With immediate effect",
+        "reason_for_suspension": [
+          "Misbehaved with a woman complainant and harassed her over WhatsApp",
+          "Treated a woman who came to lodge a complaint with disrespect; misuse of authority, negligence and misconduct"
+        ],
+        "subsistence_allowance_applicable": "Yes",
+        "department": "?"
+      },
+      "employees": [
+        {
+          "employee_name": "Jaggesh Naik",
+          "designation": "CPC 16778",
+          "office_name": "Mahadevapura Police Station, Bengaluru City",
+          "current_posting": "Mahadevapura Police Station, Bengaluru City"
+        }
+      ]
+    },
+    {
+      "file": "samples/suspension/extend/Suspension_Extend_Orders_802361.pdf",
+      "doc_type": "Suspension Extend Order",
+      "order": {
+        "document_type": "Suspension Order",
+        "disciplinary_authority_name": "Yashodha Vantagodi, IPS, Superintendent of Police, Haveri District",
+        "order_no": "Staff-03/Suspension-01/2026",
+        "order_date": "08.02.2026",
+        "reference": "Hirekerur Police Station Cr. No. 04/2026 u/s 310(2), 238 BNS 2023; CPI Hirekerur Circle report No. 252/2026 dated 08.02.2026",
+        "subject": "Suspending Sri Pradeep H. Naik, APC-328, DAR Haveri from service",
+        "copy_to": "Staff-5, Pay Section, Staff Section-1, Order Book; Additional Superintendent of Police, Haveri; DSP, DAR, Haveri; DSP, Ranebennur Sub-Division; CPI, Hirekerur Circle; PSI, Hirekerur Police Station",
+        "disciplinary_case_no": "Hirekerur Police Station Crime No. 04/2026 u/s 310(2), 238 BNS-2023",
+        "case_registration_date": "20.01.2026",
+        "case_type": "Criminal case (dacoity)",
+        "nature_of_disciplinary_action": [
+          "Suspended from service pending departmental disciplinary proceedings",
+          "Placed under suspension from service"
+        ],
+        "applicable_rule": "Karnataka Civil Services (Conduct) Rules 2021",
+        "rule_section": "?",
+        "suspension_order_no": "Staff-03/Suspension-01/2026",
+        "suspension_order_date": "08.02.2026",
+        "suspension_effective_from": "07.02.2026",
+        "reason_for_suspension": [
+          "Accused A-6 in dacoity case Crime No. 04/2026, arrested and in judicial custody",
+          "Misused authority and showed gross misconduct and negligence not befitting the post"
+        ],
+        "subsistence_allowance_applicable": "Yes",
+        "department": "Police Department",
+        "subsistence_allowance": "?"
+      },
+      "employees": [
+        {
+          "employee_name": "Pradeep H. Naik",
+          "designation": "APC-328",
+          "office_name": "DAR, Haveri",
+          "current_posting": "DAR, Haveri"
+        }
+      ]
+    },
+    {
+      "file": "samples/suspension/revoke/Suspension_Revoke_Orders_1587364.pdf",
+      "doc_type": "Suspension Revoke Order",
+      "order": {
+        "document_type": "Suspension Order",
+        "disciplinary_authority_name": "Nikhil B., IPS, Superintendent of Police, Shivamogga District",
+        "order_no": "Staff(2)Suspension/03/2026",
+        "order_date": "26.02.2026",
+        "reference": "DSP Thirthahalli sub-division report SDPO/Thi/PR/01/2026 dated 23-02-2026",
+        "subject": "Placing Sri B.H. Ramesh Naik, CHC 227 and Sri H.P. Vikram, CPC-1097, Malur Police Station under suspension",
+        "copy_to": "Additional Superintendent of Police-1, Shivamogga District; DSP, Thirthahalli Sub-Division / CPI, Malur Circle; Staff Section (3), (4) & (1) / Pay Section / Accounts Section (3) / OB book",
+        "case_type": "?",
+        "nature_of_disciplinary_action": [
+          "Placed under suspension with immediate effect, pending departmental disciplinary proceedings",
+          "Placing under suspension"
+        ],
+        "applicable_rule": "Karnataka Civil Services (Conduct) Rules 2021",
+        "rule_section": "Rule 3",
+        "suspension_order_no": "Staff(2)Suspension/03/2026",
+        "suspension_order_date": "26.02.2026",
+        "suspension_effective_from": "With immediate effect",
+        "reason_for_suspension": [
+          "Locked the police station door and slept while on night SHO duty on 21-02-2026",
+          "Failed to perform duties as per instructions of superiors, showing gross negligence, violating Rule 3 of the Karnataka Civil Services (Conduct) Rules 2021"
+        ],
+        "subsistence_allowance_applicable": "Yes",
+        "department": "Police Department"
+      },
+      "employees": [
+        {
+          "employee_name": "B.H. Ramesh Naik",
+          "designation": "CHC 227",
+          "office_name": "Malur Police Station",
+          "current_posting": "Malur Police Station"
+        },
+        {
+          "employee_name": "H.P. Vikram",
+          "designation": "CPC-1097",
+          "office_name": "Malur Police Station",
+          "current_posting": "Malur Police Station"
+        }
+      ]
+    },
+    {
+      "file": "samples/suspension/invoke/Suspension_Invoke_Orders_378215.pdf",
+      "doc_type": "Suspension Invoke Order",
+      "order": {
+        "document_type": "?",
+        "disciplinary_authority_name": "Kumara M., District Officer, Backward Classes Welfare Department, Hassan",
+        "order_no": "HBCW-1/Staff/CR-48/2025-26",
+        "order_date": "28.10.2025",
+        "reference": "Order of this office dated 14-10-2025; employees' appeals dated 27-10-2025",
+        "subject": "Keeping the departmental enquiry pending, revoking the suspension order and re-appointing Sri Ananda Harijan, Sri Prasad H. and Sri Madhukumar, cooks",
+        "copy_to": "Commissioner, Backward Classes Welfare Department, Bengaluru; Deputy Commissioner, Hassan District; Chief Executive Officer, Zilla Panchayat, Hassan; Assistant Commissioner, Hassan Sub-Division; Taluk Backward Classes Welfare Officers, Hassan & Holenarasipura Taluk; Concerned employees; Order file",
+        "case_type": "?",
+        "nature_of_disciplinary_action": "Suspension revoked and re-appointed, departmental enquiry kept pending",
+        "applicable_rule": "Karnataka Civil Services (Classification, Control and Appeal) Rules 1957",
+        "rule_section": "Rule 10(5)(c)",
+        "reinstatement_order_no": "HBCW-1/Staff/CR-48/2025-26",
+        "reinstatement_reason": [
+          "The employees, in their appeals, undertook not to neglect their duty in future",
+          "In their applications they said they will not commit any further dereliction of duty and requested that the suspension order be cancelled"
+        ],
+        "department": "Backward Classes Welfare Department",
+        "suspension_order_no": "?",
+        "suspension_order_date": "?",
+        "suspension_effective_from": "?",
+        "reason_for_suspension": "?"
+      },
+      "employees": [
+        {
+          "employee_name": "Ananda Harijan",
+          "designation": "Cook",
+          "office_name": "Pre-metric Boys Hostel, BCWD-610, Kabbatti, Hassan Taluk",
+          "current_posting": "?",
+          "reinstatement_posting_office": "Post-metric Boys Hostel, BCWD-2021, Hassan Town",
+          "reinstatement_posting_office_address": "?"
+        },
+        {
+          "employee_name": "Prasad H.",
+          "designation": "Cook",
+          "office_name": "Pre-metric Boys Hostel, BCWD-608, Hassan Town",
+          "current_posting": "?",
+          "reinstatement_posting_office": "Post-metric Boys Hostel, BCWD-2016, Hassan Town",
+          "reinstatement_posting_office_address": "?"
+        },
+        {
+          "employee_name": "Madhukumar",
+          "designation": "Cook",
+          "office_name": "Post-metric Boys Hostel, BCWD-2019, Mosalehosahalli, Hassan Taluk",
+          "current_posting": "?",
+          "reinstatement_posting_office": "Post-metric Boys Hostel, BCWD-2034, Holenarasipura Town",
+          "reinstatement_posting_office_address": "?"
+        }
+      ]
+    },
+    {
+      "file": "samples/suspension/invoke/Suspension_Invoke_Orders_376311.pdf",
+      "doc_type": "Suspension Invoke Order",
+      "order": {
+        "document_type": "?",
+        "disciplinary_authority_name": "?",
+        "order_no": "TBCW/Staff/CR-45/2025-26",
+        "order_date": "14.10.2025",
+        "reference": "?",
+        "subject": "Relieving Sri Ananda Harijan, cook, Pre-Matric Boys Hostel, Kabbatti, Hassan Taluk from duty",
+        "copy_to": "?",
+        "case_type": "?",
+        "nature_of_disciplinary_action": "?",
+        "department": "?",
+        "suspension_order_no": "?",
+        "suspension_order_date": "?",
+        "suspension_effective_from": "?",
+        "reason_for_suspension": "?"
+      },
+      "employees": [
+        {
+          "employee_name": "Ananda Harijan",
+          "designation": "Cook",
+          "office_name": "Pre-Matric Boys Hostel, Kabbatti, Hassan Taluk",
+          "current_posting": "?"
+        }
+      ]
+    }
+  ]
+}

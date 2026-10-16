@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 
 from go_extractor import data_elements, order_elements, rules, suspension
@@ -33,9 +34,13 @@ class GOPipeline:
         timings: dict[str, float] = {}
 
         def log(message: str) -> None:
-            print(f"[GO] {name} | {message}", flush=True)
+            print(f"{datetime.now():%H:%M:%S} [GO] {name} | {message}",
+                  flush=True)
 
         start = time.perf_counter()
+
+        if self.llm is not None:
+            self.llm.calls, self.llm.seconds = 0, 0.0
 
         try:
             log("OCR ...")
@@ -47,8 +52,13 @@ class GOPipeline:
             if not ocr.text.strip():
                 raise ValueError("No text could be read from the document.")
 
-            if suspension.is_suspension_order(ocr.text):
-                return self._suspension(name, ocr, timings, start, log)
+            # A file named as an invoke / extend / revoke order is one, even
+            # if its text (e.g. an unreadable page) does not say so.
+            named_type = data_elements.type_from_filename(name)
+
+            if named_type or suspension.is_suspension_order(ocr.text):
+                return self._suspension(name, ocr, timings, start, log,
+                                        named_type)
 
             step = time.perf_counter()
             fields = rules.extract(ocr.text)
@@ -70,8 +80,16 @@ class GOPipeline:
                 log(f"LLM done in {timings['LLM']:.1f}s, still missing: "
                     f"{', '.join(fields.missing_fields()) or 'none'}")
 
-            timings["Total"] = time.perf_counter() - start
-            log(f"Total {timings['Total']:.1f}s")
+            self._total(timings, start, log)
+
+            # Nothing at all found: not a "Success" with an empty row.
+            error = None
+
+            if len(fields.missing_fields()) == len(GOExtraction().missing_fields()):
+                error = ("Not recognised as a Government Advocate order or a "
+                         "suspension order: nothing could be extracted. "
+                         "Check the extracted text.")
+                log(error)
 
             return DocumentResult(
                 filename=name,
@@ -79,6 +97,8 @@ class GOPipeline:
                 text=ocr.text,
                 ocr_method=ocr.method,
                 timings=timings,
+                error=error,
+                pages=len(ocr.pages),
             )
 
         except Exception as e:
@@ -94,19 +114,24 @@ class GOPipeline:
                 error=str(e),
             )
 
-    def _suspension(self, name, ocr, timings, start, log) -> DocumentResult:
+    def _suspension(self, name, ocr, timings, start, log,
+                    named_type=None) -> DocumentResult:
         if self.llm is None:
             raise ValueError(
                 "Suspension orders need the LLM: set LLM_PROVIDER in .env."
             )
 
-        # The order type decides the fields: from the subject line, else
-        # from the LLM's reading of the whole order.
+        # The order type decides the fields: from the file name, else from
+        # the subject line, else from the LLM's reading of the whole order.
         step = time.perf_counter()
         fields = None
-        order_type = suspension._subject_type(ocr.text)
+        subject_type = suspension._subject_type(ocr.text)
+        order_type = subject_type
 
-        if order_type is None:
+        if named_type:
+            order_type = next(t for t, d in data_elements.ORDER_TYPES.items()
+                              if d == named_type)
+        elif order_type is None:
             log(f"Suspension order, LLM ({self.llm.name}) ...")
             fields = suspension.extract(ocr.text, self.llm, ocr.pages)
             order_type = fields.order_type
@@ -118,6 +143,23 @@ class GOPipeline:
             fields = order_elements.extract(
                 ocr.text, self.llm, doc_type, ocr.pages
             )
+
+            # Only warnings: the file name's type is kept.
+            if named_type and not suspension.is_suspension_order(ocr.text):
+                fields.type_check = (
+                    f"Named {doc_type}, but the text does not mention "
+                    "suspension (another kind of document?)"
+                )
+                log(fields.type_check)
+            elif subject_type and subject_type != order_type:
+                subject_doc = data_elements.ORDER_TYPES.get(
+                    subject_type, subject_type
+                )
+                fields.type_check = (
+                    f"Named {doc_type}, but its subject line reads as "
+                    f"{subject_doc}"
+                )
+                log(fields.type_check)
         else:
             doc_type = "suspension"
 
@@ -129,8 +171,7 @@ class GOPipeline:
         log(f"LLM done in {timings['LLM']:.1f}s, missing: "
             f"{', '.join(fields.missing_fields()) or 'none'}")
 
-        timings["Total"] = time.perf_counter() - start
-        log(f"Total {timings['Total']:.1f}s")
+        self._total(timings, start, log)
 
         return DocumentResult(
             filename=name,
@@ -139,4 +180,16 @@ class GOPipeline:
             ocr_method=ocr.method,
             timings=timings,
             doc_type=doc_type,
+            pages=len(ocr.pages),
         )
+
+    def _total(self, timings: dict, start: float, log) -> None:
+        """Total time, and the LLM calls this document took."""
+        timings["Total"] = time.perf_counter() - start
+        calls = self.llm.calls if self.llm is not None else 0
+
+        if calls:
+            timings["LLM calls"] = calls
+
+        log(f"Total {timings['Total']:.1f}s (OCR {timings.get('OCR', 0):.1f}s, "
+            f"LLM {timings.get('LLM', 0):.1f}s in {calls} call(s))")

@@ -21,9 +21,9 @@ st.set_page_config(
 
 from config import settings
 from go_extractor.data_elements import ORDER_TYPES, elements_for
-from go_extractor.exporter import append_to_excel, to_excel_bytes, to_row
+from go_extractor.exporter import append_to_excel, to_excel_bytes, to_rows
 from go_extractor.models import DocumentResult
-from go_extractor.ocr import IMAGE_SUFFIXES, check_languages
+from go_extractor.ocr import IMAGE_SUFFIXES
 from go_extractor.pipeline import GOPipeline
 
 UPLOAD_TYPES = ["pdf"] + sorted(s.lstrip(".") for s in IMAGE_SUFFIXES)
@@ -75,30 +75,56 @@ def process(uploaded) -> DocumentResult:
         return get_pipeline().process(path, filename=uploaded.name)
 
 
+def show_field(label: str, value: str) -> None:
+    left, right = st.columns([1, 3])
+    left.markdown(f"**{label.strip()}**" if not label.startswith(" ")
+                  else f"&nbsp;&nbsp;&nbsp;{label.strip()}")
+    right.markdown(value.replace("\n", "  \n") if value else "—")
+
+
+def show_elements(result: DocumentResult, rows: list[dict]) -> None:
+    """The order's elements once, then each employee's elements."""
+    elements = elements_for(result.doc_type)
+
+    with st.container(border=True):
+        for e in elements:
+            if not e.per_employee:
+                show_field(f"{e.number}. {e.label}", rows[0][e.label])
+
+    for row in rows:
+        with st.container(border=True):
+            st.markdown(f"**Employee {row['Employee']}**")
+
+            for e in elements:
+                if e.per_employee:
+                    show_field(f"{e.number}. {e.label}", row[e.label])
+
+
 def show_result(result: DocumentResult) -> None:
     st.subheader(result.filename)
 
     if result.error:
         st.error(f"Could not process this document: {result.error}")
+
+        if result.text:
+            with st.expander("Extracted text"):
+                st.text(result.text)
         return
 
-    row = to_row(result)
+    rows = to_rows(result)
+    row = rows[0]
 
-    with st.container(border=True):
-        if result.doc_type in ORDER_TYPES.values():
-            rows = [(f"{e.number}. {e.label}", e.label)
-                    for e in elements_for(result.doc_type)]
-        elif result.doc_type == "suspension":
-            rows = SUSPENSION_FIELD_ROWS
-        else:
-            rows = FIELD_ROWS
+    if result.doc_type in ORDER_TYPES.values():
+        show_elements(result, rows)
+    else:
+        with st.container(border=True):
+            for label, column in (SUSPENSION_FIELD_ROWS
+                                  if result.doc_type == "suspension"
+                                  else FIELD_ROWS):
+                show_field(label, row[column])
 
-        for label, column in rows:
-            left, right = st.columns([1, 3])
-            left.markdown(f"**{label.strip()}**" if not label.startswith(" ")
-                          else f"&nbsp;&nbsp;&nbsp;{label.strip()}")
-            value = row[column]
-            right.markdown(value.replace("\n", "  \n") if value else "—")
+    if getattr(result.fields, "type_check", None):
+        st.warning(result.fields.type_check + " - check the order type.")
 
     missing = result.fields.missing_fields()
 
@@ -115,15 +141,25 @@ def show_result(result: DocumentResult) -> None:
                    "English summary.")
 
     if result.doc_type != "advocate":
-        originals = {column: value for column, value in row.items()
-                     if column.endswith("(Kannada)") and value}
+        # Per employee when there are several; order values repeat, so
+        # each one is shown once.
+        originals = {}
+
+        for row in rows:
+            prefix = (f"Employee {row['Employee']} · "
+                      if len(rows) > 1 else "")
+
+            for column, value in row.items():
+                if column.endswith("(Kannada)") and value:
+                    label = column.removesuffix(" (Kannada)")
+                    originals.setdefault(
+                        label if value == rows[0].get(column) else
+                        prefix + label, value)
 
         if originals:
             with st.expander("As written in the order"):
-                for column, value in originals.items():
-                    left, right = st.columns([1, 3])
-                    left.markdown(f"**{column.removesuffix(' (Kannada)')}**")
-                    right.markdown(value.replace("\n", "  \n"))
+                for label, value in originals.items():
+                    show_field(label, value)
 
     timing = " · ".join(f"{k} {v:.1f}s" for k, v in result.timings.items())
     st.caption(f"Text: {result.ocr_method} · {timing}")
@@ -141,14 +177,6 @@ st.caption(
     "Extract details from Karnataka Government Orders and suspension "
     "orders (English & Kannada) — PDF or scanned image."
 )
-
-missing_langs = check_languages()
-
-if missing_langs:
-    st.error(
-        f"Tesseract is missing language data: {', '.join(missing_langs)}. "
-        f"Install it into Tesseract's tessdata folder."
-    )
 
 files = st.file_uploader(
     "Upload Government Orders or suspension orders",

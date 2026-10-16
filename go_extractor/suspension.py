@@ -50,13 +50,22 @@ _SUBJECT = re.compile(
 _SUBJECT_TYPES = (
     ("Suspension revoked", re.compile(r"ತೆರವು|ಪುನರ್|ಹಿಂಪಡೆ|ರದ್ದು")),
     ("Suspension extended", re.compile(r"ಮುಂದುವರೆ|ಮುಂದುವರಿ|ವಿಸ್ತರ")),
-    ("Other (suspension related)", re.compile(r"ವೇತನ|ಜೀವನಾಧಾರ|ಲೀನ್|ಲಿಯನ್")),
+    # ... or relieves them from duty (ಕರ್ತವ್ಯದಿಂದ ಬಿಡುಗಡೆ).
+    ("Other (suspension related)",
+     re.compile(r"ವೇತನ|ಜೀವನಾಧಾರ|ಲೀನ್|ಲಿಯನ್|ಕರ್ತವ್ಯದಿಂದ\s*ಬಿಡುಗಡೆ")),
     ("Suspension", re.compile(r"ಅಮಾನತ")),
 )
 
 # Words that make an "issuing authority name" a post, not a person.
+# ("ಧಿಕಾರಿ" also catches compounds such as ಕಲ್ಯಾಣಾಧಿಕಾರಿ.)
+_POST_WORDS_EN = re.compile(
+    r"\b(officer|commissioner|superintendent|secretary|director|"
+    r"inspector|authority|department|office)\b",
+    re.I,
+)
+
 _POST_WORDS = re.compile(
-    r"ಅಧೀಕ್ಷಕ|ಅಧಿಕಾರಿ|ಪ್ರಾಧಿಕಾರ|ರಾಜ್ಯಪಾಲ|ಆಯುಕ್ತ|ಕಾರ್ಯದರ್ಶಿ|ನಿರ್ದೇಶಕ|"
+    r"ಅಧೀಕ್ಷಕ|ಧಿಕಾರಿ|ಪ್ರಾಧಿಕಾರ|ರಾಜ್ಯಪಾಲ|ಆಯುಕ್ತ|ಕಾರ್ಯದರ್ಶಿ|ನಿರ್ದೇಶಕ|"
     r"ಇಲಾಖೆ|ಕಛೇರಿ|ಕಚೇರಿ|ಜಿಲ್ಲೆ|ಪಂಚಾಯತ್"
 )
 
@@ -139,7 +148,10 @@ ENGLISH_HELP = (
     "transliterated into English letters (ಸಿ.ವಿ.ಇಂಗಳಹಳ್ಳಿ -> "
     "C.V. Ingalahalli), posts, offices, departments and rules translated "
     "into standard English (ಪೊಲೀಸ್ ಅಧೀಕ್ಷಕರು, ಗದಗ ಜಿಲ್ಲೆ -> "
-    "Superintendent of Police, Gadag District; ಎಎಸ್‌ಐ -> ASI), numbers "
+    "Superintendent of Police, Gadag District; ಎಎಸ್‌ಐ -> ASI; "
+    "ಮೆಟ್ರಿಕ್ ಪೂರ್ವ ಬಾಲಕರ ವಿದ್ಯಾರ್ಥಿನಿಲಯ -> Pre-Matric Boys' Hostel; "
+    "ಹಿಂದುಳಿದ ವರ್ಗಗಳ ಕಲ್ಯಾಣ ಇಲಾಖೆ -> Backward Classes Welfare "
+    "Department), numbers "
     "and codes kept with their digits. Same as the value if it is "
     "already in English"
 )
@@ -187,7 +199,10 @@ def extract(
 
         if name == "order_type":
             value = _subject_type(text) or _order_type(value)
-        elif name == "issuing_authority" and _POST_WORDS.search(value):
+        elif name == "issuing_authority" and (
+            _POST_WORDS.search(value)
+            or _POST_WORDS_EN.search(str(answers.get(f"{name}_en") or ""))
+        ):
             logger.info("LLM issuing authority is a post: %r", value)
             value = None
         elif name == "reason" and _KANNADA.search(value):
@@ -302,6 +317,9 @@ Return one JSON object with exactly these keys: {example}"""
 # ==========================================================
 
 
+_IMMEDIATE_WORDS = re.compile(r"ತಕ್ಷಣ|immediate", re.I)
+IMMEDIATE_KEY = (0, 0, 0)
+
 _DATE = re.compile(r"(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{4}|\d{2})\b")
 
 
@@ -311,14 +329,23 @@ def _date_key(day: str, month: str, year: str) -> tuple[int, int, int]:
 
 
 def _dates_in(text: str) -> set[tuple[int, int, int]]:
-    """Every DD.MM.YYYY-like date in the text (Kannada digits included)."""
-    return {_date_key(*m.groups()) for m in _DATE.finditer(prepare(text))}
+    """
+    Every DD.MM.YYYY-like date in the text (Kannada digits included), and
+    IMMEDIATE_KEY if the text says "with immediate effect" (ತಕ್ಷಣ).
+    """
+    dates = {_date_key(*m.groups()) for m in _DATE.finditer(prepare(text))}
+
+    if _IMMEDIATE_WORDS.search(text):
+        dates.add(IMMEDIATE_KEY)
+
+    return dates
 
 
 def _date(value: str, dates: set[tuple[int, int, int]]) -> str | None:
     """DD.MM.YYYY if the date occurs in the text, else None."""
-    if value.lower().startswith(("with immediate", "immediate")):
-        return IMMEDIATE
+    if _IMMEDIATE_WORDS.search(value):
+        # Only when the order itself says so.
+        return IMMEDIATE if IMMEDIATE_KEY in dates else None
 
     match = _DATE.search(prepare(value))
 

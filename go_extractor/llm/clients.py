@@ -8,6 +8,7 @@ LLM clients. All return the model's raw text answer for a prompt.
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from abc import ABC, abstractmethod
@@ -15,6 +16,8 @@ from abc import ABC, abstractmethod
 import requests
 
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are a JSON extraction engine. Return ONLY valid JSON. "
@@ -28,14 +31,32 @@ class LLMClient(ABC):
 
     def __init__(self) -> None:
         self.session = requests.Session()
+        # Totals since the last reset (the pipeline resets per document).
+        self.calls = 0
+        self.seconds = 0.0
+        # What the server said about the last call (tokens, timing).
+        self.last_info: dict = {}
 
     def generate(self, prompt: str) -> str:
         last_error = None
 
         for attempt in range(1, settings.MAX_RETRIES + 1):
+            start = time.perf_counter()
+
             try:
-                return clean_reply(self._call(prompt))
+                self.last_info = {}
+                reply = clean_reply(self._call(prompt))
+                seconds = time.perf_counter() - start
+                self.calls += 1
+                self.seconds += seconds
+                logger.info(
+                    "LLM call %d: %.1fs, prompt %d chars, reply %d chars%s",
+                    self.calls, seconds, len(prompt), len(reply),
+                    "".join(f", {k} {v}" for k, v in self.last_info.items()),
+                )
+                return reply
             except Exception as e:
+                self.seconds += time.perf_counter() - start
                 last_error = e
                 print(
                     f"[{self.name}] Attempt {attempt}/{settings.MAX_RETRIES} "
@@ -70,12 +91,18 @@ class GenerateClient(LLMClient):
         if settings.GENERATE_NO_THINK:
             prompt += "\n\n/no_think"
 
-        return self._post(settings.GENERATE_URL, {
+        data = self._post(settings.GENERATE_URL, {
             "prompt": prompt,
             "max_tokens": settings.LLM_MAX_TOKENS,
             "temperature": 0,
             "repetition_penalty": settings.GENERATE_REPETITION_PENALTY,
-        })["text"]
+        })
+        self.last_info = {
+            key: data[key] for key in
+            ("tokens_generated", "inference_ms", "finish_reason", "model")
+            if key in data
+        }
+        return data["text"]
 
 
 class OpenAIClient(LLMClient):
